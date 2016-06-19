@@ -52,8 +52,14 @@ if len(sys.argv) == 3 and sys.argv[1] == '--relaxed':
     relaxed = True
 
 name = sys.argv[1]
-output_bytes = subprocess.check_output([sys.executable, name + ".py"],
-                                       stderr=subprocess.STDOUT)
+try:
+    output_bytes = subprocess.check_output([sys.executable, name + ".py"],
+                                        stderr=subprocess.STDOUT)
+except subprocess.CalledProcessError as exc:
+    print('Test `{}` failed:\n{}\n'.format(name, '-' * 50))
+    print(exc.output.decode())
+    print('-' * 50)
+    sys.exit(1)
 
 output    = sanitize(output_bytes.decode('utf-8'))
 reference = sanitize(open(name + '.ref', 'r').read())
