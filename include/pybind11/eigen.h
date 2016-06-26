@@ -108,7 +108,7 @@ struct type_caster<Type, typename std::enable_if<is_eigen_dense<Type>::value>::t
                 /* Size of one scalar */
                 sizeof(Scalar),
                 /* Python struct-style format descriptor */
-                format_descriptor<Scalar>::value(),
+                format_descriptor<Scalar>::format(),
                 /* Number of dimensions */
                 1,
                 /* Buffer dimensions */
@@ -123,7 +123,7 @@ struct type_caster<Type, typename std::enable_if<is_eigen_dense<Type>::value>::t
                 /* Size of one scalar */
                 sizeof(Scalar),
                 /* Python struct-style format descriptor */
-                format_descriptor<Scalar>::value(),
+                format_descriptor<Scalar>::format(),
                 /* Number of dimensions */
                 isVector ? 1 : 2,
                 /* Buffer dimensions */
@@ -227,7 +227,7 @@ struct type_caster<Type, typename std::enable_if<is_eigen_sparse<Type>::value>::
             // Size of one scalar
             sizeof(Scalar),
             // Python struct-style format descriptor
-            format_descriptor<Scalar>::value(),
+            format_descriptor<Scalar>::format(),
             // Number of dimensions
             1,
             // Buffer dimensions
@@ -242,7 +242,7 @@ struct type_caster<Type, typename std::enable_if<is_eigen_sparse<Type>::value>::
             // Size of one scalar
             sizeof(StorageIndex),
             // Python struct-style format descriptor
-            format_descriptor<StorageIndex>::value(),
+            format_descriptor<StorageIndex>::format(),
             // Number of dimensions
             1,
             // Buffer dimensions
@@ -257,7 +257,7 @@ struct type_caster<Type, typename std::enable_if<is_eigen_sparse<Type>::value>::
             // Size of one scalar
             sizeof(StorageIndex),
             // Python struct-style format descriptor
-            format_descriptor<StorageIndex>::value(),
+            format_descriptor<StorageIndex>::format(),
             // Number of dimensions
             1,
             // Buffer dimensions
