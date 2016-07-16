@@ -162,27 +162,40 @@ public:
 
     static object strip_padding_fields(object dtype) {
         // Recursively strip all void fields with empty names that are generated for
-        // padding fields (as of NumPy v1.11). Since array constructor strips these
-        // fields automatically
-        auto fields = (object) dtype.attr("fields");
+        // padding fields (as of NumPy v1.11).
+        auto fields = dtype.attr("fields").cast<object>();
         if (fields.ptr() == Py_None)
             return dtype;
-        auto args = dict();
-        list names { }, offsets { }, formats { };
-        for (auto field : ((object) (fields).attr("items"))()) {
-            auto spec = (tuple) object(field, true);
-            auto name = (pybind11::str) spec[0];
-            auto type_spec = (tuple) spec[1];
-            auto field_dtype = (object) type_spec[0];
-            auto offset = (int_) type_spec[1];
-            if (len(name) == 0 && ((std::string) (pybind11::str) dtype.attr("kind")) == "V")
-                continue;
-            names.append(name);
-            offsets.append(offset);
-            formats.append(strip_padding_fields(field_dtype));
+
+        struct field_descr { pybind11::str name; object format; int_ offset; };
+        std::vector<field_descr> field_descriptors;
+
+        auto items = fields.attr("items").cast<object>();
+        for (auto field : items()) {
+            auto spec = object(field, true).cast<tuple>();
+            auto name = spec[0].cast<pybind11::str>();
+            auto format = spec[1].cast<tuple>()[0].cast<object>();
+            auto offset = spec[1].cast<tuple>()[1].cast<int_>();
+            if (!len(name) && (std::string) dtype.attr("kind").cast<pybind11::str>() == "V")
+                    continue;
+            field_descriptors.push_back({name, strip_padding_fields(format), offset});
         }
-        args["names"] = names; args["offsets"] = offsets; args["formats"] = formats;
-        args["itemsize"] = (int_) dtype.attr("itemsize");
+
+        std::sort(field_descriptors.begin(), field_descriptors.end(),
+                  [](const field_descr& a, const field_descr& b) {
+                      return (int) a.offset < (int) b.offset;
+                  });
+
+        list names, formats, offsets;
+        for (auto& descr : field_descriptors) {
+            names.append(descr.name);
+            formats.append(descr.format);
+            offsets.append(descr.offset);
+        }
+        auto args = dict();
+        args["names"] = names; args["formats"] = formats; args["offsets"] = offsets;
+        args["itemsize"] = dtype.attr("itemsize").cast<int_>();
+
         PyObject *descr = nullptr;
         if (!lookup_api().PyArray_DescrConverter_(args.release().ptr(), &descr) || !descr)
             pybind11_fail("NumPy: failed to create structured dtype");
