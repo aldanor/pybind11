@@ -150,7 +150,6 @@ public:
             tmp = object(api.PyArray_NewCopy_(tmp.ptr(), -1 /* any order */), false);
         m_ptr = tmp.release().ptr();
         auto d = (object) this->attr("dtype");
-        std::cout << "!!! "; PyObject_Print(d.ptr(), stdout, Py_PRINT_RAW); std::cout << '\n';
     }
 
 // protected:
