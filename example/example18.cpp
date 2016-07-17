@@ -96,7 +96,6 @@ py::array_t<PartialNestedStruct, 0> create_partial_nested(size_t n) {
     for (size_t i = 0; i < n; i++) {
         ptr[i].a.x = i % 2; ptr[i].a.y = (uint32_t) i; ptr[i].a.z = (float) i * 1.5f;
     }
-    std::cout << "dtype! " << (std::string) ((py::object) arr.attr("dtype")).str() << "\n";
     return arr;
 }
 
@@ -145,5 +144,4 @@ void init_ex18(py::module &m) {
     m.def("print_rec_nested", &print_recarray<NestedStruct>);
     m.def("print_dtypes", &print_dtypes);
     m.def("get_format_unbound", &get_format_unbound);
-    m.def("spf", [](py::object o) { return py::array::strip_padding_fields(o); });
 }

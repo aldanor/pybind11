@@ -33,7 +33,6 @@ for func, dtype in [(create_rec_simple, simple_dtype), (create_rec_packed, packe
     check_eq(arr, [], packed_dtype)
 
     arr = func(3)
-    print(arr)
     assert arr.dtype == dtype
     check_eq(arr, elements, simple_dtype)
     check_eq(arr, elements, packed_dtype)
@@ -45,8 +44,6 @@ for func, dtype in [(create_rec_simple, simple_dtype), (create_rec_packed, packe
 
 
 arr = create_rec_partial(3)
-print(arr)
-print('partial', repr(arr.dtype))
 partial_dtype = arr.dtype
 assert '' not in arr.dtype.fields
 assert partial_dtype.itemsize > simple_dtype.itemsize
@@ -54,8 +51,6 @@ check_eq(arr, elements, simple_dtype)
 check_eq(arr, elements, packed_dtype)
 
 arr = create_rec_partial_nested(3)
-print(arr)
-print('nested partial', arr.dtype)
 assert '' not in arr.dtype.fields
 assert '' not in arr.dtype.fields['a'][0].fields
 assert arr.dtype.itemsize > partial_dtype.itemsize
