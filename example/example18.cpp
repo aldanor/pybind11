@@ -100,7 +100,7 @@ py::array_t<PartialNestedStruct, 0> create_partial_nested(size_t n) {
 }
 
 template <typename S>
-void print_recarray(py::array_t<S> arr) {
+void print_recarray(py::array_t<S, 0> arr) {
     auto buf = arr.request();
     auto ptr = static_cast<S*>(buf.ptr);
     for (size_t i = 0; i < buf.size; i++)
