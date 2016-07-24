@@ -1159,12 +1159,12 @@ completely avoid copy operations with Python expressions like
     py::class_<Matrix>(m, "Matrix")
        .def_buffer([](Matrix &m) -> py::buffer_info {
             return py::buffer_info(
-                m.data(),                            /* Pointer to buffer */
-                sizeof(float),                       /* Size of one scalar */
-                py::format_descriptor<float>::value, /* Python struct-style format descriptor */
-                2,                                   /* Number of dimensions */
-                { m.rows(), m.cols() },              /* Buffer dimensions */
-                { sizeof(float) * m.rows(),          /* Strides (in bytes) for each index */
+                m.data(),                               /* Pointer to buffer */
+                sizeof(float),                          /* Size of one scalar */
+                py::format_descriptor<float>::format(), /* Python struct-style format descriptor */
+                2,                                      /* Number of dimensions */
+                { m.rows(), m.cols() },                 /* Buffer dimensions */
+                { sizeof(float) * m.rows(),             /* Strides (in bytes) for each index */
                   sizeof(float) }
             );
         });
@@ -1208,7 +1208,7 @@ buffer objects (e.g. a NumPy matrix).
             py::buffer_info info = b.request();
 
             /* Some sanity checks ... */
-            if (info.format != py::format_descriptor<Scalar>::value)
+            if (info.format != py::format_descriptor<Scalar>::format())
                 throw std::runtime_error("Incompatible format: expected a double array!");
 
             if (info.ndim != 2)
@@ -1234,7 +1234,7 @@ as follows:
             m.data(),                /* Pointer to buffer */
             sizeof(Scalar),          /* Size of one scalar */
             /* Python struct-style format descriptor */
-            py::format_descriptor<Scalar>::value,
+            py::format_descriptor<Scalar>::format(),
             /* Number of dimensions */
             2,
             /* Buffer dimensions */
@@ -1292,6 +1292,30 @@ The ``py::array::forcecast`` argument is the default value of the second
 template paramenter, and it ensures that non-conforming arguments are converted
 into an array satisfying the specified requirements instead of trying the next
 function overload.
+
+NumPy structured types
+======================
+
+In order for ``py::array_t`` to work with structured (record) types, we first need
+to register the memory layout of the type. This can be done via ``PYBIND11_NUMPY_DTYPE``
+macro which expects the type followed by field names:
+
+.. code-block:: cpp
+
+    struct A {
+        int x;
+        double y;
+    };
+
+    struct B {
+        int z;
+        A a;
+    };
+
+    PYBIND11_NUMPY_DTYPE(A, x, y);
+    PYBIND11_NUMPY_DTYPE(B, z, a);
+
+    /* now both A and B can be used as template arguments to py::array_t */
 
 Vectorizing functions
 =====================
@@ -1374,7 +1398,7 @@ simply using ``vectorize``).
         auto result = py::array(py::buffer_info(
             nullptr,            /* Pointer to data (nullptr -> ask NumPy to allocate!) */
             sizeof(double),     /* Size of one item */
-            py::format_descriptor<double>::value, /* Buffer format */
+            py::format_descriptor<double>::format(), /* Buffer format */
             buf1.ndim,          /* How many dimensions? */
             { buf1.shape[0] },  /* Number of elements for each dimension */
             { sizeof(double) }  /* Strides for each dimension */
@@ -1760,4 +1784,3 @@ is always ``none``).
 
     // Evaluate the statements in an separate Python file on disk
     py::eval_file("script.py", scope);
-
