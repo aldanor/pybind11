@@ -287,6 +287,13 @@ public:
     size_t ndim() const {
         return (size_t) PyArray_GET(m_ptr, nd);
     }
+
+    std::vector<size_t> shape() const {
+        std::vector<size_t> result(ndim());
+        for (size_t i = 0; i < ndim(); i++)
+            result[i] = (size_t) PyArray_GET(m_ptr, dimensions)[i];
+        return result;
+    }
     }
 
 protected:
