@@ -283,6 +283,10 @@ public:
     pybind11::dtype dtype() const {
         return object(PyArray_GET(m_ptr, descr), true);
     }
+
+    size_t ndim() const {
+        return (size_t) PyArray_GET(m_ptr, nd);
+    }
     }
 
 protected:
