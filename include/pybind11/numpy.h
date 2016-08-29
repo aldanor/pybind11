@@ -294,6 +294,12 @@ public:
             result[i] = (size_t) PyArray_GET(m_ptr, dimensions)[i];
         return result;
     }
+
+    std::vector<size_t> strides() const {
+        std::vector<size_t> result(ndim());
+        for (size_t i = 0; i < ndim(); i++)
+            result[i] = (size_t) PyArray_GET(m_ptr, strides)[i];
+        return result;
     }
 
 protected:
