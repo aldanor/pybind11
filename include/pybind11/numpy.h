@@ -180,7 +180,7 @@ public:
     }
 
     size_t itemsize() const {
-        return attr("itemsize").cast<size_t>();
+        return (size_t) PyArrayDescr_GET(m_ptr, elsize);
     }
 
     bool has_fields() const {
