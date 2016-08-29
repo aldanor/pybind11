@@ -187,8 +187,8 @@ public:
         return attr("fields").cast<object>().ptr() != Py_None;
     }
 
-    std::string kind() const {
-        return (std::string) attr("kind").cast<pybind11::str>();
+    char kind() const {
+        return PyArrayDescr_GET(m_ptr, kind);
     }
 
 private:
@@ -214,7 +214,7 @@ private:
             auto name = spec[0].cast<pybind11::str>();
             auto format = spec[1].cast<tuple>()[0].cast<dtype>();
             auto offset = spec[1].cast<tuple>()[1].cast<pybind11::int_>();
-            if (!len(name) && format.kind() == "V")
+            if (!len(name) && format.kind() == 'V')
                 continue;
             field_descriptors.push_back({(PYBIND11_STR_TYPE) name, format.strip_padding(), offset});
         }
