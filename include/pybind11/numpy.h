@@ -708,16 +708,13 @@ struct vectorize_helper {
         if (size == 1)
             return cast(f(*((Args *) buffers[Index].ptr)...));
 
-        array result(buffer_info(nullptr, sizeof(Return),
-            format_descriptor<Return>::format(),
-            ndim, shape, strides));
-
-        buffer_info buf = result.request();
-        Return *output = (Return *) buf.ptr;
+        array_t<Return> result(shape, strides);
+        auto buf = result.request();
+        auto output = (Return *) buf.ptr;
 
         if (trivial_broadcast) {
             /* Call the function */
-            for (size_t i=0; i<size; ++i) {
+            for (size_t i = 0; i < size; ++i) {
                 output[i] = f((buffers[Index].size == 1
                                ? *((Args *) buffers[Index].ptr)
                                : ((Args *) buffers[Index].ptr)[i])...);
