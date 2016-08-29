@@ -30,12 +30,39 @@ namespace detail {
 template <typename type, typename SFINAE = void> struct npy_format_descriptor { };
 template <typename type> struct is_pod_struct;
 
+struct PyArrayDescr_Proxy {
+    PyObject_HEAD
+    PyObject *typeobj;
+    char kind;
+    char type;
+    char byteorder;
+    char flags;
+    int type_num;
+    int elsize;
+    int alignment;
+    char *subarray;
+    PyObject *fields;
+    PyObject *names;
+};
+
+struct PyArray_Proxy {
+    PyObject_HEAD
+    char *data;
+    int nd;
+    ssize_t *dimensions;
+    ssize_t *strides;
+    PyObject *base;
+    PyObject *descr;
+    int flags;
+};
+
 struct npy_api {
     enum constants {
         NPY_C_CONTIGUOUS_ = 0x0001,
         NPY_F_CONTIGUOUS_ = 0x0002,
-        NPY_ARRAY_FORCECAST_ = 0x0010,
         NPY_ENSURE_ARRAY_ = 0x0040,
+        NPY_ARRAY_ALIGNED_ = 0x0100,
+        NPY_ARRAY_WRITEABLE_ = 0x0400,
         NPY_BOOL_ = 0,
         NPY_BYTE_, NPY_UBYTE_,
         NPY_SHORT_, NPY_USHORT_,
@@ -112,6 +139,9 @@ private:
     }
 };
 }
+
+#define PyArray_GET(ptr, attr) (reinterpret_cast<::pybind11::detail::PyArray_Proxy*>(ptr)->attr)
+#define PyArrayDescr_GET(ptr, attr) (reinterpret_cast<::pybind11::detail::PyArrayDescr_Proxy*>(ptr)->attr)
 
 class dtype : public object {
 public:
