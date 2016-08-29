@@ -184,7 +184,7 @@ public:
     }
 
     bool has_fields() const {
-        return attr("fields").cast<object>().ptr() != Py_None;
+        return PyArrayDescr_GET(m_ptr, names) != nullptr;
     }
 
     char kind() const {
@@ -201,13 +201,13 @@ private:
     dtype strip_padding() {
         // Recursively strip all void fields with empty names that are generated for
         // padding fields (as of NumPy v1.11).
-        auto fields = attr("fields").cast<object>();
-        if (fields.ptr() == Py_None)
+        if (!has_fields())
             return *this;
 
         struct field_descr { PYBIND11_STR_TYPE name; object format; pybind11::int_ offset; };
         std::vector<field_descr> field_descriptors;
 
+        auto fields = attr("fields").cast<object>();
         auto items = fields.attr("items").cast<object>();
         for (auto field : items()) {
             auto spec = object(field, true).cast<tuple>();
