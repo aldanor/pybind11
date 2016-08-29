@@ -280,8 +280,9 @@ public:
     array(const buffer_info &info)
     : array(pybind11::dtype(info), info.shape, info.strides, info.ptr) { }
 
-    pybind11::dtype dtype() {
-        return attr("dtype").cast<pybind11::dtype>();
+    pybind11::dtype dtype() const {
+        return object(PyArray_GET(m_ptr, descr), true);
+    }
     }
 
 protected:
