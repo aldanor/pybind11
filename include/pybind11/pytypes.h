@@ -275,7 +275,7 @@ NAMESPACE_END(detail)
         Name(object&& o) noexcept : Parent(std::move(o)) { CvtStmt; } \
         Name& operator=(object&& o) noexcept { (void) object::operator=(std::move(o)); CvtStmt; return *this; } \
         Name& operator=(const object& o) { return static_cast<Name&>(object::operator=(o)); CvtStmt; } \
-        bool check() const { return m_ptr != nullptr && (bool) CheckFun(m_ptr); }
+        bool check() const { return this->m_ptr != nullptr && (bool) CheckFun(this->m_ptr); }
 
 #define PYBIND11_OBJECT(Name, Parent, CheckFun) \
     PYBIND11_OBJECT_CVT(Name, Parent, CheckFun, )
