@@ -234,18 +234,54 @@ private:
     }
 };
 
-class array : public buffer {
-public:
-    PYBIND11_OBJECT_DEFAULT(array, buffer, detail::npy_api::get().PyArray_Check_)
+namespace detail {
+template<typename T> inline PyObject* get_dtype_ptr() {
+    return dtype::of<T>().release().inc_ref().ptr(); }
 
+template<> inline PyObject* get_dtype_ptr<void>() {
+    return nullptr;
+}
+}
+
+struct array_flags {
     enum {
         c_style = detail::npy_api::NPY_C_CONTIGUOUS_,
         f_style = detail::npy_api::NPY_F_CONTIGUOUS_,
-        forcecast = detail::npy_api::NPY_ARRAY_FORCECAST_
+        aligned = detail::npy_api::NPY_ARRAY_ALIGNED_,
+        writeable = detail::npy_api::NPY_ARRAY_WRITEABLE_,
+        in_flags = c_style | aligned,
+        out_flags = c_style | aligned | writeable,
+        default_flags = out_flags
+    };
+};
+
+template<int flags>
+class generic_array : public buffer {
+public:
+    PYBIND11_OBJECT_CVT(
+        generic_array,
+        buffer,
+        check_array,
+        m_ptr = ensure_array(m_ptr)
+    )
+
+    enum {
+        c_style = array_flags::c_style,
+        f_style = array_flags::f_style,
+        aligned = array_flags::aligned,
+        writeable = array_flags::writeable,
+        in_flags = array_flags::in_flags,
+        out_flags = array_flags::out_flags,
+        default_flags = array_flags::default_flags
     };
 
-    array(const pybind11::dtype& dt, const std::vector<size_t>& shape,
-          const std::vector<size_t>& strides, void *ptr = nullptr) {
+    static_assert(!(flags & c_style) || !(flags & f_style),
+                  "invalid flags: cannot combine c_style and f_style");
+
+    generic_array() : buffer() { }
+
+    generic_array(const pybind11::dtype& dt, const std::vector<size_t>& shape,
+                  const std::vector<size_t>& strides, void *ptr = nullptr) {
         auto& api = detail::npy_api::get();
         auto ndim = shape.size();
         if (shape.size() != strides.size())
@@ -255,30 +291,30 @@ public:
             api.PyArray_Type_, descr.release().ptr(), (int) ndim, (Py_intptr_t *) shape.data(),
             (Py_intptr_t *) strides.data(), ptr, 0, nullptr), false);
         if (!tmp)
-            pybind11_fail("NumPy: unable to create array!");
+            throw error_already_set();
         if (ptr)
             tmp = object(api.PyArray_NewCopy_(tmp.ptr(), -1 /* any order */), false);
         m_ptr = tmp.release().ptr();
     }
 
-    array(const pybind11::dtype& dt, const std::vector<size_t>& shape, void *ptr = nullptr)
-    : array(dt, shape, default_strides(shape, dt.itemsize()), ptr) { }
+    generic_array(const pybind11::dtype& dt, const std::vector<size_t>& shape, void *ptr = nullptr)
+    : generic_array(dt, shape, c_strides(shape, dt.itemsize()), ptr) { }
 
-    array(const pybind11::dtype& dt, size_t count, void *ptr = nullptr)
-    : array(dt, std::vector<size_t> { count }, ptr) { }
+    generic_array(const pybind11::dtype& dt, size_t count, void *ptr = nullptr)
+    : generic_array(dt, std::vector<size_t> { count }, ptr) { }
 
-    template<typename T> array(const std::vector<size_t>& shape,
-                               const std::vector<size_t>& strides, T* ptr)
-    : array(pybind11::dtype::of<T>(), shape, strides, (void *) ptr) { }
+    template<typename T> generic_array(const std::vector<size_t>& shape,
+                                       const std::vector<size_t>& strides, T* ptr)
+    : generic_array(pybind11::dtype::of<T>(), shape, strides, (void *) ptr) { }
 
-    template<typename T> array(const std::vector<size_t>& shape, T* ptr)
-    : array(shape, default_strides(shape, sizeof(T)), ptr) { }
+    template<typename T> generic_array(const std::vector<size_t>& shape, T* ptr)
+    : generic_array(shape, c_strides(shape, sizeof(T)), ptr) { }
 
-    template<typename T> array(size_t size, T* ptr)
-    : array(std::vector<size_t> { size }, ptr) { }
+    template<typename T> generic_array(size_t count, T* ptr)
+    : generic_array(std::vector<size_t> { count }, ptr) { }
 
-    array(const buffer_info &info)
-    : array(pybind11::dtype(info), info.shape, info.strides, info.ptr) { }
+    generic_array(const buffer_info &info)
+    : generic_array(pybind11::dtype(info), info.shape, info.strides, info.ptr) { }
 
     pybind11::dtype dtype() const {
         return object(PyArray_GET(m_ptr, descr), true);
@@ -305,7 +341,7 @@ public:
 protected:
     template <typename T, typename SFINAE> friend struct detail::npy_format_descriptor;
 
-    static std::vector<size_t> default_strides(const std::vector<size_t>& shape, size_t itemsize) {
+    static std::vector<size_t> c_strides(const std::vector<size_t>& shape, size_t itemsize) {
         auto ndim = shape.size();
         std::vector<size_t> strides(ndim);
         if (ndim) {
@@ -316,38 +352,72 @@ protected:
         }
         return strides;
     }
-};
 
-template <typename T, int ExtraFlags = array::forcecast> class array_t : public array {
-public:
-    PYBIND11_OBJECT_CVT(array_t, array, is_non_null, m_ptr = ensure(m_ptr));
+    static bool check_array(PyObject *ptr) {
+        return ptr && detail::npy_api::get().PyArray_Check_(ptr);
+    }
 
-    array_t() : array() { }
-
-    array_t(const buffer_info& info) : array(info) { }
-
-    array_t(const std::vector<size_t>& shape, const std::vector<size_t>& strides, T* ptr = nullptr)
-    : array(shape, strides, ptr) { }
-
-    array_t(const std::vector<size_t>& shape, T* ptr = nullptr)
-    : array(shape, ptr) { }
-
-    array_t(size_t size, T* ptr = nullptr)
-    : array(size, ptr) { }
-
-    static bool is_non_null(PyObject *ptr) { return ptr != nullptr; }
-
-    static PyObject *ensure(PyObject *ptr) {
-        if (ptr == nullptr)
-            return nullptr;
+    template<typename T = void>
+    static PyObject* ensure_array(PyObject *ptr) {
         auto& api = detail::npy_api::get();
-        PyObject *result = api.PyArray_FromAny_(ptr, pybind11::dtype::of<T>().release().ptr(), 0, 0,
-                                                detail::npy_api::NPY_ENSURE_ARRAY_ | ExtraFlags, nullptr);
+        int arr_flags = detail::npy_api::NPY_ENSURE_ARRAY_ | flags;
+        auto descr = detail::get_dtype_ptr<T>();
+        auto result = api.PyArray_FromAny_(ptr, descr, 0, 0, arr_flags, nullptr);
         if (!result)
-            PyErr_Clear();
+            throw error_already_set();
         Py_DECREF(ptr);
         return result;
     }
+};
+
+class array_in : public generic_array<array_flags::in_flags> {
+    using generic_array::generic_array;
+};
+class array_out : public generic_array<array_flags::out_flags> {
+    using generic_array::generic_array;
+};
+class array : public generic_array<array_flags::default_flags> {
+    using generic_array::generic_array;
+    using in = array_in;
+    using out = array_out;
+};
+
+template<typename T, int flags = array_flags::default_flags>
+class array_t : public generic_array<flags> {
+    using base_t = generic_array<flags>;
+
+public:
+    PYBIND11_OBJECT_CVT(
+        array_t,
+        base_t,
+        base_t::check_array,
+        this->m_ptr = base_t::template ensure_array<T>(this->m_ptr)
+    )
+
+    using in = array_t<T, array_flags::in_flags>;
+    using out = array_t<T, array_flags::out_flags>;
+
+    array_t() : base_t() { }
+
+    array_t(const buffer_info& info) : base_t(info) { }
+
+    array_t(const std::vector<size_t>& shape, const std::vector<size_t>& strides, T* ptr = nullptr)
+    : base_t(shape, strides, ptr) { }
+
+    array_t(const std::vector<size_t>& shape, T* ptr = nullptr)
+    : base_t(shape, ptr) { }
+
+    array_t(size_t count, T* ptr = nullptr)
+    : base_t(count, ptr) { }
+};
+template<typename T> using array_in_t = typename array_t<T>::in;
+template<typename T> using array_out_t = typename array_t<T>::out;
+
+template<int flags> struct detail::handle_load_options<generic_array<flags>> {
+    enum { ignore_error_already_set = true };
+};
+template<typename T, int flags> struct detail::handle_load_options<array_t<T, flags>> {
+    enum { ignore_error_already_set = true };
 };
 
 template <typename T>
@@ -697,11 +767,11 @@ struct vectorize_helper {
     template <typename T>
     vectorize_helper(T&&f) : f(std::forward<T>(f)) { }
 
-    object operator()(array_t<Args, array::c_style | array::forcecast>... args) {
+    object operator()(array_t<Args>... args) {
         return run(args..., typename make_index_sequence<sizeof...(Args)>::type());
     }
 
-    template <size_t ... Index> object run(array_t<Args, array::c_style | array::forcecast>&... args, index_sequence<Index...> index) {
+    template <size_t ... Index> object run(array_t<Args>&... args, index_sequence<Index...> index) {
         /* Request buffers from all parameters */
         const size_t N = sizeof...(Args);
 
