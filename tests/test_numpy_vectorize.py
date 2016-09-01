@@ -18,13 +18,13 @@ def test_vectorize(capture):
             assert np.isclose(f(np.array(1), np.array(2), 3), 6)
         assert capture == "my_func(x:int=1, y:float=2, z:float=3)"
         with capture:
-            assert np.allclose(f(np.array([1, 3]), np.array([2, 4]), 3), [6, 36])
+            assert np.allclose(f(np.array([1, 3], 'i'), np.array([2, 4], 'f'), 3), [6, 36])
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=3)
             my_func(x:int=3, y:float=4, z:float=3)
         """
         with capture:
-            a, b, c = np.array([[1, 3, 5], [7, 9, 11]]), np.array([[2, 4, 6], [8, 10, 12]]), 3
+            a, b, c = np.array([[1, 3, 5], [7, 9, 11]], 'i'), np.array([[2, 4, 6], [8, 10, 12]], 'f'), 3
             assert np.allclose(f(a, b, c), a * b * c)
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=3)
@@ -35,7 +35,7 @@ def test_vectorize(capture):
             my_func(x:int=11, y:float=12, z:float=3)
         """
         with capture:
-            a, b, c = np.array([[1, 2, 3], [4, 5, 6]]), np.array([2, 3, 4]), 2
+            a, b, c = np.array([[1, 2, 3], [4, 5, 6]], 'i'), np.array([2, 3, 4], 'f'), 2
             assert np.allclose(f(a, b, c), a * b * c)
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=2)
@@ -46,7 +46,7 @@ def test_vectorize(capture):
             my_func(x:int=6, y:float=4, z:float=2)
         """
         with capture:
-            a, b, c = np.array([[1, 2, 3], [4, 5, 6]]), np.array([[2], [3]]), 2
+            a, b, c = np.array([[1, 2, 3], [4, 5, 6]], 'i'), np.array([[2], [3]], 'f'), 2
             assert np.allclose(f(a, b, c), a * b * c)
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=2)
