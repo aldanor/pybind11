@@ -265,6 +265,8 @@ public:
         m_ptr = ensure_array(m_ptr)
     )
 
+    using data_ptr_t = typename std::conditional<!!(flags & array_flags::writeable), void *, const void *>::type;
+
     enum {
         c_style = array_flags::c_style,
         f_style = array_flags::f_style,
@@ -338,6 +340,10 @@ public:
         return result;
     }
 
+    data_ptr_t data() {
+        return reinterpret_cast<data_ptr_t>(PyArray_GET(m_ptr, data));
+    }
+
 protected:
     template <typename T, typename SFINAE> friend struct detail::npy_format_descriptor;
 
@@ -397,6 +403,8 @@ public:
     using in = array_t<T, array_flags::in_flags>;
     using out = array_t<T, array_flags::out_flags>;
 
+    using data_ptr_t = typename std::conditional<!!(flags & array_flags::writeable), T *, const T *>::type;
+
     array_t() : base_t() { }
 
     array_t(const buffer_info& info) : base_t(info) { }
@@ -409,6 +417,10 @@ public:
 
     array_t(size_t count, T* ptr = nullptr)
     : base_t(count, ptr) { }
+
+    data_ptr_t data() {
+        return reinterpret_cast<data_ptr_t>(PyArray_GET(this->m_ptr, data));
+    }
 };
 template<typename T> using array_in_t = typename array_t<T>::in;
 template<typename T> using array_out_t = typename array_t<T>::out;
