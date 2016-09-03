@@ -413,11 +413,11 @@ public:
 template<typename T> using array_in_t = typename array_t<T>::in;
 template<typename T> using array_out_t = typename array_t<T>::out;
 
-template<int flags> struct detail::handle_load_options<generic_array<flags>> {
-    enum { ignore_error_already_set = true };
+template<int flags> struct detail::load_options<generic_array<flags>> {
+    enum { propagate_errors = 1 };
 };
-template<typename T, int flags> struct detail::handle_load_options<array_t<T, flags>> {
-    enum { ignore_error_already_set = true };
+template<typename T, int flags> struct detail::load_options<array_t<T, flags>> {
+    enum { propagate_errors = 1 };
 };
 
 template <typename T>

@@ -807,7 +807,7 @@ template <typename base, typename holder> struct is_holder_type :
 template <typename base, typename deleter> struct is_holder_type<base, std::unique_ptr<base, deleter>> :
     std::true_type {};
 
-template<typename T> struct handle_load_options { enum { ignore_error_already_set = false }; };
+template<typename T> struct load_options { enum { propagate_errors = 0 }; };
 
 template <typename T> struct handle_type_name { static PYBIND11_DESCR name() { return _<T>(); } };
 template <> struct handle_type_name<bytes> { static PYBIND11_DESCR name() { return _(PYBIND11_BYTES_NAME); } };
@@ -819,7 +819,7 @@ struct type_caster<type, typename std::enable_if<std::is_base_of<handle, type>::
 public:
     template <typename T = type, typename std::enable_if<!std::is_base_of<object, T>::value, int>::type = 0>
     bool load(handle src, bool /* convert */) {
-        if (!handle_load_options<type>::ignore_error_already_set) {
+        if (!load_options<type>::propagate_errors) {
             value = type(src); return value.check();
         } else {
             try { value = type(src); return value.check(); }
@@ -829,7 +829,7 @@ public:
 
     template <typename T = type, typename std::enable_if<std::is_base_of<object, T>::value, int>::type = 0>
     bool load(handle src, bool /* convert */) {
-        if (!handle_load_options<type>::ignore_error_already_set) {
+        if (!load_options<type>::propagate_errors) {
             value = type(src, true); return value.check();
         } else {
             try { value = type(src, true); return value.check(); }
