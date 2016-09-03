@@ -679,6 +679,9 @@ protected:
     type_caster<typename intrinsic_type<T2>::type> second;
 };
 
+template<int N, typename... Ts> using nth =
+    typename std::tuple_element<N, std::tuple<Ts...>>::type;
+
 template <typename... Tuple> class type_caster<std::tuple<Tuple...>> {
     typedef std::tuple<Tuple...> type;
     typedef std::tuple<typename intrinsic_type<Tuple>::type...> itype;
@@ -762,6 +765,15 @@ protected:
         for (bool r : success)
             if (!r)
                 return false;
+        auto handles = std::array<PyObject*, size> { PyTuple_GET_ITEM(src.ptr(), Indices)... };
+        auto is_ref = std::array<bool, size> {
+            std::is_reference<typename std::remove_cv<nth<Indices, Tuple...>>::type>::value...
+        };
+        for (size_t i = 0; i < size; i++) {
+            auto inst = ((instance<void> *) handles[i]);
+            if (!inst->tracked && is_ref[i])
+                return false;
+        }
         return true;
     }
 
