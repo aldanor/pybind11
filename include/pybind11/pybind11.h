@@ -731,13 +731,14 @@ protected:
         auto tinfo = detail::get_type_info(type);
         self->value = ::operator new(tinfo->type_size);
         self->owned = true;
+        self->tracked = true;
         self->constructed = false;
         detail::get_internals().registered_instances.emplace(self->value, (PyObject *) self);
         return (PyObject *) self;
     }
 
     static void dealloc(instance<void> *self) {
-        if (self->value) {
+        if (self->value && self->tracked) {
             auto instance_type = Py_TYPE(self);
             auto &registered_instances = detail::get_internals().registered_instances;
             auto range = registered_instances.equal_range(self->value);

@@ -198,7 +198,8 @@ enum class return_value_policy : uint8_t {
         collected while Python is still using the child. More advanced
         variations of this scheme are also possible using combinations of
         return_value_policy::reference and the keep_alive call policy */
-    reference_internal
+    reference_internal,
+    copy_untracked
 };
 
 /// Information record describing a Python buffer object
@@ -256,6 +257,7 @@ template <typename type> struct instance_essentials {
     PyObject *weakrefs;
     bool owned : 1;
     bool constructed : 1;
+    bool tracked : 1;
 };
 
 /// PyObject wrapper around generic types, includes a special holder type that is responsible for lifetime management

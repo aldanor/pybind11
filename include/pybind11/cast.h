@@ -194,6 +194,7 @@ public:
 
         wrapper->value = src;
         wrapper->owned = true;
+        wrapper->tracked = true;
 
         if (policy == return_value_policy::automatic)
             policy = return_value_policy::take_ownership;
@@ -215,11 +216,17 @@ public:
         } else if (policy == return_value_policy::reference_internal) {
             wrapper->owned = false;
             detail::keep_alive_impl(inst, parent);
+        } else if (policy == return_value_policy::copy_untracked) {
+            wrapper->tracked = false;
+            wrapper->value = copy_constructor(wrapper->value);
+            if (wrapper->value == nullptr)
+                throw cast_error("return_value_policy = copy, but the object is non-copyable!");
         }
 
         tinfo->init_holder(inst.ptr(), existing_holder);
 
-        internals.registered_instances.emplace(wrapper->value, inst.ptr());
+        if (wrapper->tracked)
+            internals.registered_instances.emplace(wrapper->value, inst.ptr());
 
         return inst.release();
     }
@@ -716,7 +723,7 @@ public:
     static PYBIND11_DESCR element_names() {
         return detail::concat(type_caster<typename intrinsic_type<Tuple>::type>::name()...);
     }
-    
+
     static PYBIND11_DESCR name() {
         return type_descr(_("Tuple[") + element_names() + _("]"));
     }
