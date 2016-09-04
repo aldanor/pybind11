@@ -96,8 +96,12 @@ struct npy_api {
     PyTypeObject *PyArray_Type_;
     PyTypeObject *PyArrayDescr_Type_;
     PyObject *(*PyArray_FromAny_) (PyObject *, PyObject *, int, int, int, PyObject *);
+    int (*PyArray_CopyInto_) (PyObject *, PyObject *);
+    PyObject *(*PyArray_FromArray_) (PyObject *, PyObject *, int);
     int (*PyArray_DescrConverter_) (PyObject *, PyObject **);
     bool (*PyArray_EquivTypes_) (PyObject *, PyObject *);
+    bool (*PyArray_CanCastArrayTo_) (PyObject *, PyObject *, int);
+    PyObject *(*PyArray_NewLikeArray_) (PyObject *, int, PyObject *, int);
     int (*PyArray_GetArrayParamsFromObject_)(PyObject *, PyObject *, char, PyObject **, int *,
                                              Py_ssize_t *, PyObject **, PyObject *);
 private:
@@ -106,11 +110,15 @@ private:
         API_PyArrayDescr_Type = 3,
         API_PyArray_DescrFromType = 45,
         API_PyArray_FromAny = 69,
+        API_PyArray_CopyInto = 82,
         API_PyArray_NewCopy = 85,
         API_PyArray_NewFromDescr = 94,
         API_PyArray_DescrNewFromType = 9,
+        API_PyArray_FromArray = 109,
         API_PyArray_DescrConverter = 174,
         API_PyArray_EquivTypes = 182,
+        API_PyArray_CanCastArrayTo = 274,
+        API_PyArray_NewLikeArray = 277,
         API_PyArray_GetArrayParamsFromObject = 278,
     };
 
@@ -128,11 +136,15 @@ private:
         DECL_NPY_API(PyArrayDescr_Type);
         DECL_NPY_API(PyArray_DescrFromType);
         DECL_NPY_API(PyArray_FromAny);
+        DECL_NPY_API(PyArray_CopyInto);
+        DECL_NPY_API(PyArray_FromArray);
         DECL_NPY_API(PyArray_NewCopy);
         DECL_NPY_API(PyArray_NewFromDescr);
         DECL_NPY_API(PyArray_DescrNewFromType);
         DECL_NPY_API(PyArray_DescrConverter);
         DECL_NPY_API(PyArray_EquivTypes);
+        DECL_NPY_API(PyArray_CanCastArrayTo);
+        DECL_NPY_API(PyArray_NewLikeArray);
         DECL_NPY_API(PyArray_GetArrayParamsFromObject);
 #undef DECL_NPY_API
         return api;
@@ -243,6 +255,13 @@ template<> inline PyObject* get_dtype_ptr<void>() {
 }
 }
 
+enum class casting : int { no, equiv, safe, same_kind, unsafe };
+
+inline const char* to_string(casting policy) {
+    static const char *policies[] = { "no", "equiv", "safe", "same_kind", "unsafe" };
+    return policies[static_cast<int>(policy)];
+}
+
 struct array_flags {
     enum {
         c_style = detail::npy_api::NPY_C_CONTIGUOUS_,
@@ -254,6 +273,8 @@ struct array_flags {
         default_flags = out_flags
     };
 };
+
+template<typename T, int flags> class array_t;
 
 template<int flags>
 class generic_array : public buffer {
@@ -276,6 +297,7 @@ public:
         out_flags = array_flags::out_flags,
         default_flags = array_flags::default_flags
     };
+    using casting = pybind11::casting;
 
     static_assert(!(flags & c_style) || !(flags & f_style),
                   "invalid flags: cannot combine c_style and f_style");
@@ -317,6 +339,9 @@ public:
 
     generic_array(const buffer_info &info)
     : generic_array(pybind11::dtype(info), info.shape, info.strides, info.ptr) { }
+
+    generic_array<flags> astype(const pybind11::dtype& newtype, casting policy = casting::same_kind) const;
+    template<typename T> array_t<T, flags> astype(casting policy = casting::same_kind) const;
 
     pybind11::dtype dtype() const {
         return object(PyArray_GET(m_ptr, descr), true);
@@ -432,6 +457,34 @@ public:
 };
 template<typename T> using array_in_t = typename array_t<T>::in;
 template<typename T> using array_out_t = typename array_t<T>::out;
+
+namespace detail {
+inline PyObject* cast_array(PyObject* src, const dtype& newtype, casting policy) {
+    auto& api = npy_api::get();
+    if (!api.PyArray_CanCastArrayTo_(src, newtype.ptr(), static_cast<int>(policy)))
+        pybind11_fail(std::string("NumPy: unable to cast array to type `") +
+                      newtype.str().cast<std::string>() + "` using policy `" +
+                      to_string(policy) + "`");
+    auto arr = handle(api.PyArray_NewLikeArray_(src, /* order = */ -1, newtype.ptr(), /* subok = */ 1));
+    if (!arr)
+        throw error_already_set();
+    if (api.PyArray_CopyInto_(arr.ptr(), src) < 0 || !arr) {
+        arr.dec_ref();
+        throw error_already_set();
+    }
+    return arr.ptr();
+}
+}
+
+template<int flags>
+generic_array<flags> generic_array<flags>::astype(const pybind11::dtype& newtype, casting policy) const {
+    return {detail::cast_array(m_ptr, newtype, policy), false};
+}
+
+template<int flags> template<typename T>
+array_t<T, flags> generic_array<flags>::astype(casting policy) const {
+    return {detail::cast_array(m_ptr, pybind11::dtype::of<T>(), policy), false};
+}
 
 template<int flags> struct detail::load_options<generic_array<flags>> {
     enum { propagate_errors = 1 };
