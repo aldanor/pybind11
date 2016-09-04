@@ -326,21 +326,29 @@ public:
         return (size_t) PyArray_GET(m_ptr, nd);
     }
 
-    std::vector<size_t> shape() const {
-        std::vector<size_t> result(ndim());
-        for (size_t i = 0; i < ndim(); i++)
-            result[i] = (size_t) PyArray_GET(m_ptr, dimensions)[i];
-        return result;
+    const size_t* shape() const {
+        static_assert(sizeof(size_t) == sizeof(Py_intptr_t), "size_t != Py_intptr_t");
+        return reinterpret_cast<const size_t *>(PyArray_GET(m_ptr, dimensions));
     }
 
-    std::vector<size_t> strides() const {
-        std::vector<size_t> result(ndim());
-        for (size_t i = 0; i < ndim(); i++)
-            result[i] = (size_t) PyArray_GET(m_ptr, strides)[i];
-        return result;
+    size_t shape(size_t axis) const {
+        if (axis >= ndim())
+            pybind11_fail("NumPy: attempted to index shape beyond ndim");
+        return shape()[axis];
     }
 
-    data_ptr_t data() {
+    const size_t* strides() const {
+        static_assert(sizeof(size_t) == sizeof(Py_intptr_t), "size_t != Py_intptr_t");
+        return reinterpret_cast<const size_t *>(PyArray_GET(m_ptr, strides));
+    }
+
+    size_t strides(size_t axis) const {
+        if (axis >= ndim())
+            pybind11_fail("NumPy: attempted to index strides beyond ndim");
+        return strides()[axis];
+    }
+
+    data_ptr_t data() const {
         return reinterpret_cast<data_ptr_t>(PyArray_GET(m_ptr, data));
     }
 

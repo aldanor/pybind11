@@ -83,15 +83,11 @@ struct type_caster<Type, typename std::enable_if<is_eigen_dense<Type>::value && 
     static constexpr bool isVector = Type::IsVectorAtCompileTime;
 
     bool load(handle src, bool) {
-       array_t<Scalar> buffer(src, true);
-       if (!buffer.check())
+       array_t<Scalar> buf(src, true);
+       if (!buf.check())
            return false;
 
-       auto ndim = buffer.ndim();
-       auto shape = buffer.shape();
-       auto strides = buffer.strides();
-
-       if (ndim == 1) {
+       if (buf.ndim() == 1) {
             typedef Eigen::InnerStride<> Strides;
             if (!isVector &&
                 !(Type::RowsAtCompileTime == Eigen::Dynamic &&
@@ -99,25 +95,32 @@ struct type_caster<Type, typename std::enable_if<is_eigen_dense<Type>::value && 
                 return false;
 
             if (Type::SizeAtCompileTime != Eigen::Dynamic &&
-                shape[0] != (size_t) Type::SizeAtCompileTime)
+                buf.shape(0) != (size_t) Type::SizeAtCompileTime)
                 return false;
 
-            Strides::Index n_elts = (Strides::Index) shape[0];
+            Strides::Index n_elts = (Strides::Index) buf.shape(0);
             Strides::Index unity = 1;
 
             value = Eigen::Map<Type, 0, Strides>(
-                buffer.data(), rowMajor ? unity : n_elts, rowMajor ? n_elts : unity,
-                Strides(strides[0] / sizeof(Scalar)));
-        } else if (ndim == 2) {
+                buf.data(),
+                rowMajor ? unity : n_elts,
+                rowMajor ? n_elts : unity,
+                Strides(buf.strides(0) / sizeof(Scalar))
+            );
+        } else if (buf.ndim() == 2) {
             typedef Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> Strides;
 
-            if ((Type::RowsAtCompileTime != Eigen::Dynamic && shape[0] != (size_t) Type::RowsAtCompileTime) ||
-                (Type::ColsAtCompileTime != Eigen::Dynamic && shape[1] != (size_t) Type::ColsAtCompileTime))
+            if ((Type::RowsAtCompileTime != Eigen::Dynamic && buf.shape(0) != (size_t) Type::RowsAtCompileTime) ||
+                (Type::ColsAtCompileTime != Eigen::Dynamic && buf.shape(1) != (size_t) Type::ColsAtCompileTime))
                 return false;
 
             value = Eigen::Map<Type, 0, Strides>(
-                buffer.data(), typename Strides::Index(shape[0]), typename Strides::Index(shape[1]),
-                Strides(strides[rowMajor ? 0 : 1] / sizeof(Scalar), strides[rowMajor ? 1 : 0] / sizeof(Scalar)));
+                buf.data(),
+                typename Strides::Index(buf.shape(0)),
+                typename Strides::Index(buf.shape(1)),
+                Strides(buf.strides(rowMajor ? 0 : 1) / sizeof(Scalar),
+                        buf.strides(rowMajor ? 1 : 0) / sizeof(Scalar))
+            );
         } else {
             return false;
         }
