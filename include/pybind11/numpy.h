@@ -203,6 +203,9 @@ public:
         return PyArrayDescr_GET(m_ptr, kind);
     }
 
+    class record_builder;
+    class packed_record_builder;
+
 private:
     static object _dtype_from_pep3118() {
         static PyObject *obj = module::import("numpy.core._internal")
@@ -243,6 +246,37 @@ private:
             offsets.append(descr.offset);
         }
         return dtype(names, formats, offsets, itemsize());
+    }
+};
+
+class dtype::record_builder {
+public:
+    record_builder(size_t itemsize) : itemsize(itemsize) {}
+
+    record_builder& add(const std::string& name, size_t offset, const dtype& type) {
+        names.append(pybind11::str(name));
+        offsets.append(pybind11::int_(offset));
+        formats.append(type);
+        return *this;
+    }
+
+    dtype build() const {
+        return dtype(names, formats, offsets, itemsize);
+    }
+
+protected:
+    list names, formats, offsets;
+    size_t itemsize;
+};
+
+class dtype::packed_record_builder : public dtype::record_builder {
+public:
+    packed_record_builder() : record_builder(0) {}
+
+    packed_record_builder& add(const std::string& name, const dtype& type) {
+        record_builder::add(name, itemsize, type);
+        itemsize += type.itemsize();
+        return *this;
     }
 };
 

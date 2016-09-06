@@ -31,6 +31,22 @@ def test_format_descriptors():
 
 
 @pytest.requires_numpy
+def test_record_builders():
+    import numpy as np
+    from pybind11_tests import record_builder as rb, packed_record_builder as prb
+
+    assert rb(0).build() == np.dtype([])
+    assert rb(1).build() == np.dtype({'names': [], 'formats': [], 'offsets': [], 'itemsize': 1})
+    assert rb(10).add('foo', 8, '?').add('bar', 2, 'f4').build() == \
+        np.dtype({'names': ['bar', 'foo'], 'formats': ['f4', '?'], 'offsets': [2, 8], 'itemsize': 10})
+    with pytest.raises(ValueError):
+        rb(10).add('foo', 8, 'i4').build()
+
+    assert prb().build() == np.dtype([])
+    assert prb().add('foo', '?').add('bar', 'f4').build() == np.dtype([('foo', '?'), ('bar', 'f4')])
+
+
+@pytest.requires_numpy
 def test_dtype():
     from pybind11_tests import print_dtypes, test_dtype_ctors, test_dtype_methods
 
