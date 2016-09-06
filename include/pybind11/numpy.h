@@ -183,7 +183,7 @@ public:
         // This is essentially the same as calling np.dtype() constructor in Python
         PyObject *ptr = nullptr;
         if (!detail::npy_api::get().PyArray_DescrConverter_(args.release().ptr(), &ptr) || !ptr)
-            pybind11_fail("NumPy: failed to create structured dtype");
+            throw error_already_set();
         return object(ptr, false);
     }
 
