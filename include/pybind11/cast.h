@@ -111,7 +111,7 @@ PYBIND11_NOINLINE inline std::string error_string() {
 
    std::string errorString;
     if (type) {
-        errorString += (std::string) handle(type).str();
+        errorString += handle(type).attr("__name__").cast<std::string>();
         errorString += ": ";
     }
     if (value)
@@ -155,7 +155,7 @@ public:
     PYBIND11_NOINLINE bool load(handle src, bool convert) {
         if (!src || !typeinfo)
             return false;
-        if (src.ptr() == Py_None) {
+        if (src.is_none()) {
             value = nullptr;
             return true;
         } else if (PyType_IsSubtype(Py_TYPE(src.ptr()), typeinfo->type)) {
@@ -180,7 +180,7 @@ public:
                                          const void *existing_holder = nullptr) {
         void *src = const_cast<void *>(_src);
         if (src == nullptr)
-            return handle(Py_None).inc_ref();
+            return none();
 
         auto &internals = get_internals();
 
@@ -408,7 +408,7 @@ template <> class type_caster<void_type> {
 public:
     bool load(handle, bool) { return false; }
     static handle cast(void_type, return_value_policy /* policy */, handle /* parent */) {
-        return handle(Py_None).inc_ref();
+        return none();
     }
     PYBIND11_TYPE_CASTER(void_type, _("None"));
 };
@@ -420,7 +420,7 @@ public:
     bool load(handle h, bool) {
         if (!h) {
             return false;
-        } else if (h.ptr() == Py_None) {
+        } else if (h.is_none()) {
             value = nullptr;
             return true;
         }
@@ -446,7 +446,7 @@ public:
         if (ptr)
             return capsule(ptr).release();
         else
-            return handle(Py_None).inc_ref();
+            return none();
     }
 
     template <typename T> using cast_op_type = void*&;
@@ -558,12 +558,12 @@ protected:
 template <> class type_caster<char> : public type_caster<std::string> {
 public:
     bool load(handle src, bool convert) {
-        if (src.ptr() == Py_None) return true;
+        if (src.is_none()) return true;
         return type_caster<std::string>::load(src, convert);
     }
 
     static handle cast(const char *src, return_value_policy /* policy */, handle /* parent */) {
-        if (src == nullptr) return handle(Py_None).inc_ref();
+        if (src == nullptr) return none();
         return PyUnicode_FromString(src);
     }
 
@@ -581,12 +581,12 @@ public:
 template <> class type_caster<wchar_t> : public type_caster<std::wstring> {
 public:
     bool load(handle src, bool convert) {
-        if (src.ptr() == Py_None) return true;
+        if (src.is_none()) return true;
         return type_caster<std::wstring>::load(src, convert);
     }
 
     static handle cast(const wchar_t *src, return_value_policy /* policy */, handle /* parent */) {
-        if (src == nullptr) return handle(Py_None).inc_ref();
+        if (src == nullptr) return none();
         return PyUnicode_FromWideChar(src, (ssize_t) wcslen(src));
     }
 
@@ -757,7 +757,7 @@ public:
     bool load(handle src, bool convert) {
         if (!src || !typeinfo) {
             return false;
-        } else if (src.ptr() == Py_None) {
+        } else if (src.is_none()) {
             value = nullptr;
             return true;
         } else if (PyType_IsSubtype(Py_TYPE(src.ptr()), typeinfo->type)) {
@@ -807,6 +807,8 @@ template <typename base, typename holder> struct is_holder_type :
 template <typename base, typename deleter> struct is_holder_type<base, std::unique_ptr<base, deleter>> :
     std::true_type {};
 
+template<typename T> struct load_options { enum { propagate_errors = 0 }; };
+
 template <typename T> struct handle_type_name { static PYBIND11_DESCR name() { return _<T>(); } };
 template <> struct handle_type_name<bytes> { static PYBIND11_DESCR name() { return _(PYBIND11_BYTES_NAME); } };
 template <> struct handle_type_name<args> { static PYBIND11_DESCR name() { return _("*args"); } };
@@ -816,10 +818,24 @@ template <typename type>
 struct type_caster<type, typename std::enable_if<std::is_base_of<handle, type>::value>::type> {
 public:
     template <typename T = type, typename std::enable_if<!std::is_base_of<object, T>::value, int>::type = 0>
-    bool load(handle src, bool /* convert */) { value = type(src); return value.check(); }
+    bool load(handle src, bool /* convert */) {
+        if (!load_options<type>::propagate_errors) {
+            value = type(src); return value.check();
+        } else {
+            try { value = type(src); return value.check(); }
+            catch(const error_already_set&) { PyErr_Clear(); return false; }
+        }
+    }
 
     template <typename T = type, typename std::enable_if<std::is_base_of<object, T>::value, int>::type = 0>
-    bool load(handle src, bool /* convert */) { value = type(src, true); return value.check(); }
+    bool load(handle src, bool /* convert */) {
+        if (!load_options<type>::propagate_errors) {
+            value = type(src, true); return value.check();
+        } else {
+            try { value = type(src, true); return value.check(); }
+            catch(const error_already_set&) { PyErr_Clear(); return false; }
+        }
+    }
 
     static handle cast(const handle &src, return_value_policy /* policy */, handle /* parent */) {
         return src.inc_ref();

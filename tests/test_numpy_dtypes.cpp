@@ -297,6 +297,22 @@ test_initializer numpy_dtypes([](py::module &m) {
     m.def("test_array_ctors", &test_array_ctors);
     m.def("test_dtype_ctors", &test_dtype_ctors);
     m.def("test_dtype_methods", &test_dtype_methods);
+
+    py::class_<py::dtype::record_builder>(m, "record_builder")
+        .def(py::init<size_t>())
+        .def("add",
+             [](py::dtype::record_builder& self, const std::string& name, size_t offset, py::object type) {
+                 return self.add(name, offset, py::dtype::from_args(type));
+             })
+        .def("build", [](const py::dtype::record_builder& self) { return self.build(); });
+
+    py::class_<py::dtype::packed_record_builder>(m, "packed_record_builder")
+        .def(py::init<>())
+        .def("add",
+             [](py::dtype::packed_record_builder& self, const std::string& name, py::object type) {
+                 return self.add(name, py::dtype::from_args(type));
+             })
+        .def("build", [](const py::dtype::packed_record_builder& self) { return self.build(); });
 });
 
 #undef PYBIND11_PACKED
