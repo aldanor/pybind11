@@ -256,24 +256,26 @@ struct buffer_info {
     size_t ndim = 0;             // Number of dimensions
     std::vector<size_t> shape;   // Shape of the tensor (1 entry per dimension)
     std::vector<size_t> strides; // Number of entries between adjacent entries (for each per dimension)
+    bool readonly;               // An indicator of whether the buffer is read-only
 
     buffer_info() { }
 
     buffer_info(void *ptr, size_t itemsize, const std::string &format, size_t ndim,
-                const std::vector<size_t> &shape, const std::vector<size_t> &strides)
+                const std::vector<size_t> &shape, const std::vector<size_t> &strides, bool readonly = false)
         : ptr(ptr), itemsize(itemsize), size(1), format(format),
-          ndim(ndim), shape(shape), strides(strides) {
+          ndim(ndim), shape(shape), strides(strides), readonly(readonly) {
         for (size_t i = 0; i < ndim; ++i)
             size *= shape[i];
     }
 
-    buffer_info(void *ptr, size_t itemsize, const std::string &format, size_t size)
+    buffer_info(void *ptr, size_t itemsize, const std::string &format, size_t size, bool readonly = false)
     : buffer_info(ptr, itemsize, format, 1, std::vector<size_t> { size },
-                  std::vector<size_t> { itemsize }) { }
+                  std::vector<size_t> { itemsize }, readonly) { }
 
     explicit buffer_info(Py_buffer *view, bool ownview = true)
         : ptr(view->buf), itemsize((size_t) view->itemsize), size(1), format(view->format),
-          ndim((size_t) view->ndim), shape((size_t) view->ndim), strides((size_t) view->ndim), view(view), ownview(ownview) {
+          ndim((size_t) view->ndim), shape((size_t) view->ndim), strides((size_t) view->ndim),
+          readonly(view->readonly != 0), view(view), ownview(ownview) {
         for (size_t i = 0; i < (size_t) view->ndim; ++i) {
             shape[i] = (size_t) view->shape[i];
             strides[i] = (size_t) view->strides[i];
@@ -296,6 +298,7 @@ struct buffer_info {
         ndim = rhs.ndim;
         shape = std::move(rhs.shape);
         strides = std::move(rhs.strides);
+        readonly = rhs.readonly;
         std::swap(view, rhs.view);
         std::swap(ownview, rhs.ownview);
         return *this;
